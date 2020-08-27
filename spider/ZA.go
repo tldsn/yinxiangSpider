@@ -3,14 +3,31 @@ package spider
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+	"yinxiangSpider/util"
 	"yinxiangSpider/util/httpclient"
 
 	"github.com/tidwall/gjson"
 )
+
+var PersonalKey string
+var SaveFilePath string
+
+func init() {
+	content, err := ioutil.ReadFile(util.GetCurrentDir() + "config.json")
+	if err != nil {
+		panic("初始化配置信息错误")
+	}
+	root := gjson.Parse(string(content[:]))
+	PersonalKey = root.Get("personalKey").String()
+	SaveFilePath = root.Get("saveFilePath").String()
+	log.Println("init success")
+}
 
 //获取url生成任务
 func GetNoteUrl() (taskList []string, err error) {
@@ -19,9 +36,9 @@ func GetNoteUrl() (taskList []string, err error) {
 	urlArr := make([]string, 0)
 	// _NoteUrl := `https://www.yinxiang.com/everhub/note/%s`
 	// _NoteUrl := `https://app.yinxiang.com/third/discovery/client/restful/public/blog-note?noteGuid=%s`
-	_SearchUrl := `https://app.yinxiang.com/third/discovery/client/restful/public/blog-user/homepage?encryptedUserId=GOCexxM5gTzjXaWYoJ-LVg&lastNoteGuid=%s&notePageSize=10`
+	_SearchUrl := `https://app.yinxiang.com/third/discovery/client/restful/public/blog-user/homepage?encryptedUserId=%s&lastNoteGuid=%s&notePageSize=10`
 
-	url0 := fmt.Sprintf(_SearchUrl, "")
+	url0 := fmt.Sprintf(_SearchUrl, PersonalKey, "")
 	headers0 := httpclient.HMGetJSON()
 	headers0["Host"] = `app.yinxiang.com`
 	headers0["User-Agent"] = `Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:75.0) Gecko/20100101 Firefox/75.0`
@@ -39,10 +56,10 @@ func GetNoteUrl() (taskList []string, err error) {
 		urlArr = append(urlArr, guid)
 		return true
 	})
-	fmt.Println(noteCount_int64)
+	log.Println(noteCount_int64)
 	noteCount_int64 = noteCount_int64 - defaultCount
 	for ; noteCount_int64 > 0; noteCount_int64 = noteCount_int64 - defaultCount {
-		url0 := fmt.Sprintf(_SearchUrl, lastGuid)
+		url0 := fmt.Sprintf(_SearchUrl, PersonalKey, lastGuid)
 		result, err := httpclient.Get(url0, "", headers0, 20000)
 		if err != nil {
 			return nil, err
@@ -101,7 +118,7 @@ func EnterNoteUrl(guid string) (err error) {
 //写入文件
 func CreatHtmlforBlog(title, tags, creatTimeStr, htmlContent string) (err error) {
 
-	fileName := "C:\\Users\\Administrator\\Desktop\\tldsn.github.io\\_posts\\other\\" + creatTimeStr + "-" + title + ".html"
+	fileName := SaveFilePath + creatTimeStr + "-" + title + ".html"
 	f, _ := os.Create(fileName)
 	defer f.Close()
 	head := `---` + "\n" +
